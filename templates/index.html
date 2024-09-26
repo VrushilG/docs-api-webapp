@@ -147,7 +147,8 @@
                             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                                 <thead class="bg-gray-50 dark:bg-gray-900">
                                     <tr>
-                                        <!-- Table headers will be dynamically added here -->
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Field</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Value</th>
                                     </tr>
                                 </thead>
                                 <tbody id="classification-results-body">
@@ -155,6 +156,7 @@
                                 </tbody>
                             </table>
                         </div>
+                        <button id="proceed-to-extraction" class="mt-4 bg-primary dark:bg-primary-light text-white p-2 rounded-md hover:bg-primary-light dark:hover:bg-primary transition-all duration-300 hidden">Proceed to Extraction</button>
                     </div>
                 </div>
 
@@ -195,7 +197,8 @@
                             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
                                 <thead class="bg-gray-50 dark:bg-gray-900">
                                     <tr>
-                                        <!-- Table headers will be dynamically added here -->
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Field</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Value</th>
                                     </tr>
                                 </thead>
                                 <tbody id="extraction-results-body">
@@ -229,7 +232,7 @@
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Email Action</th>
                 </tr>
             </thead>
-            <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+            <tbody id="requests-table-body">
                 <!-- Table rows will be dynamically added here -->
             </tbody>
         </table>
@@ -255,28 +258,30 @@
 </div>
 
 <!-- Email Modal -->
-<div x-show="emailModalOpen" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center modal" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
-    <div class="bg-white dark:bg-gray-800 rounded-lg p-8 max-w-md w-full modal-content" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 transform scale-95" x-transition:enter-end="opacity-100 transform scale-100" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100 transform scale-100" x-transition:leave-end="opacity-0 transform scale-95">
+<div id="emailModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center hidden">
+    <div class="bg-white dark:bg-gray-800 rounded-lg p-8 max-w-md w-full">
         <h2 class="text-2xl font-bold mb-4 text-primary dark:text-primary-light">Send Email</h2>
-        <form id="email-form" class="space-y-4">
+        <form id="emailForm" class="space-y-4">
             <div>
                 <label for="email_doc_uuid" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Document UUID</label>
                 <input type="text" id="email_doc_uuid" name="doc_uuid" readonly class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-300">
             </div>
             <div>
-                <label for="email_addresses" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email Addresses</label>
-                <input type="text" id="email_addresses" name="email_addresses" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300" placeholder="Multiple emails separated by ;" required>
+                <label for="email_address" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email Address</label>
+                <input type="email" id="email_address" name="email_address" required class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300">
             </div>
             <div>
                 <label for="process_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Process Name</label>
-                <select id="process_name" name="process_name" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300" required>
+                <select id="process_name" name="process_name" required class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300">
                     <option value="classification">Classification</option>
                     <option value="extraction">Extraction</option>
                 </select>
             </div>
-            <button type="submit" class="w-full bg-primary dark:bg-primary-light text-white p-2 rounded-md hover:bg-primary-light dark:hover:bg-primary transition-all duration-300">Send Email</button>
+            <div class="flex justify-end space-x-2">
+                <button type="button" id="cancelEmailBtn" class="bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-md hover:bg-gray-400 dark:hover:bg-gray-500 transition-all duration-300">Cancel</button>
+                <button type="submit" class="bg-primary dark:bg-primary-light text-white px-4 py-2 rounded-md hover:bg-primary-light dark:hover:bg-primary transition-all duration-300">Send Email</button>
+            </div>
         </form>
-        <button @click="emailModalOpen = false" class="mt-4 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-md hover:bg-gray-400 dark:hover:bg-gray-500 transition-all duration-300">Cancel</button>
     </div>
 </div>
 
@@ -355,16 +360,7 @@
             if (mockClassificationResults && mockClassificationResults.length > 0) {
                 displayResults(mockClassificationResults, 'classification-results');
                 document.getElementById('classification-results').classList.remove('hidden');
-                
-                // Add "Proceed to Extraction" button
-                const proceedButton = document.createElement('button');
-                proceedButton.textContent = 'Proceed to Extraction';
-                proceedButton.className = 'mt-4 bg-primary dark:bg-primary-light text-white p-2 rounded-md hover:bg-primary-light dark:hover:bg-primary transition-all duration-300';
-                proceedButton.onclick = () => {
-                    currentStep++;
-                    showStep(currentStep);
-                };
-                document.getElementById('classification-results').appendChild(proceedButton);
+                document.getElementById('proceed-to-extraction').classList.remove('hidden');
                 
                 // Update or add the request in the table
                 updateRequestsTable('Classified', mockClassificationResults[0].value);
@@ -385,17 +381,16 @@
         }
     });
 
+    document.getElementById('proceed-to-extraction').addEventListener('click', () => {
+        currentStep++;
+        showStep(currentStep);
+    });
+
     function displayResults(results, containerId) {
         const container = document.getElementById(containerId);
         const tbody = container.querySelector('tbody');
         tbody.innerHTML = '';
-        const headers = ['Field', 'Value'];
-        
-        // Add table headers
-        const thead = container.querySelector('thead tr');
-        thead.innerHTML = headers.map(header => `<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">${header}</th>`).join('');
 
-        // Add table rows
         results.forEach(result => {
             const tr = document.createElement('tr');
             tr.innerHTML = `
@@ -446,15 +441,24 @@
             displayResults(mockExtractionResults, 'extraction-results');
             document.getElementById('extraction-results').classList.remove('hidden');
             
-            // Add "Finish" button
-            const finishButton = document.createElement('button');
-            finishButton.textContent = 'Finish';
-            finishButton.className = 'mt-4 bg-primary dark:bg-primary-light text-white p-2 rounded-md hover:bg-primary-light dark:hover:bg-primary transition-all duration-300';
-            finishButton.onclick = resetWizard;
-            document.getElementById('extraction-results').appendChild(finishButton);
-            
             // Update the request in the table
             updateRequestsTable('Completed');
+            
+            // Remove existing "Finish" button if it exists
+            const existingFinishButton = document.getElementById('finish-button');
+            if (existingFinishButton) {
+                existingFinishButton.remove();
+            }
+            
+            // Add "Finish" button
+            const finishButton = document.createElement('button');
+            finishButton.id = 'finish-button';
+            finishButton.textContent = 'Finish';
+            finishButton.className = 'mt-4 bg-primary dark:bg-primary-light text-white p-2 rounded-md hover:bg-primary-light dark:hover:bg-primary transition-all duration-300';
+            finishButton.onclick = () => {
+                resetWizard();
+            };
+            document.getElementById('extraction-results').appendChild(finishButton);
         } catch (error) {
             console.error('Error:', error);
             alert('An error occurred during extraction');
@@ -463,21 +467,40 @@
         }
     });
 
-    document.getElementById('email-form').addEventListener('submit', async (e) => {
+    document.getElementById('emailForm').addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
+        const emailAddress = formData.get('email_address');
+        const docUuid = formData.get('doc_uuid');
+        
+        if (!emailAddress) {
+            alert('Email address is required');
+            return;
+        }
+        
+        if (!docUuid) {
+            alert('Document UUID is missing');
+            return;
+        }
+        
+        const formDataObject = Object.fromEntries(formData);
+        console.log('Sending data:', formDataObject); // Log the data being sent
+
         try {
             showLoader();
             const response = await fetch('/email', {
                 method: 'POST',
-                body: new URLSearchParams(formData)
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formDataObject)
             });
             const data = await response.json();
             if (response.ok) {
                 alert('Email sent successfully!');
-                emailModalOpen = false;
+                closeEmailModal();
             } else {
-                alert(data.error);
+                alert(data.error || 'An error occurred while sending the email');
             }
         } catch (error) {
             console.error('Error:', error);
@@ -494,8 +517,11 @@
         document.getElementById('upload-form').reset();
         document.getElementById('classification-form').reset();
         document.getElementById('extraction-form').reset();
-        // Reload the page to update the requests table
-        window.location.reload();
+        document.getElementById('classification-results').classList.add('hidden');
+        document.getElementById('extraction-results').classList.add('hidden');
+        // Clear the results tables
+        document.getElementById('classification-results-body').innerHTML = '';
+        document.getElementById('extraction-results-body').innerHTML = '';
     }
 
     function showLoader() {
@@ -513,9 +539,21 @@
     }
 
     function openEmailModal(docUuid) {
-        document.getElementById('email_doc_uuid').value = docUuid;
-        emailModalOpen = true;
+        console.log('Received docUuid:', docUuid);
+        const modal = document.getElementById('emailModal');
+        const docUuidInput = document.getElementById('email_doc_uuid');
+        
+        docUuidInput.value = docUuid;
+        console.log('Setting document UUID:', docUuid); // Log the UUID being set
+        modal.classList.remove('hidden');
     }
+
+    function closeEmailModal() {
+        const modal = document.getElementById('emailModal');
+        modal.classList.add('hidden');
+    }
+
+    document.getElementById('cancelEmailBtn').addEventListener('click', closeEmailModal);
 
     // Add these variables at the beginning of your script
     let requests = [];
@@ -523,7 +561,7 @@
 
     // Function to render the table
     function renderTable() {
-        const tbody = document.querySelector('tbody');
+        const tbody = document.getElementById('requests-table-body');
         tbody.innerHTML = '';
         
         requests.forEach(request => {
@@ -572,7 +610,7 @@
 
     // Function to render filtered table
     function renderFilteredTable(filteredRequests) {
-        const tbody = document.querySelector('tbody');
+        const tbody = document.getElementById('requests-table-body');
         tbody.innerHTML = '';
         
         filteredRequests.forEach(request => {
@@ -600,12 +638,6 @@
 
     // Event listener for search input
     document.getElementById('search-input').addEventListener('input', filterTable);
-
-    // Function to open email modal
-    function openEmailModal(docUuid) {
-        document.getElementById('email_doc_uuid').value = docUuid;
-        emailModalOpen = true;
-    }
 
     // Fetch requests data and render the table
     async function fetchAndRenderRequests() {
