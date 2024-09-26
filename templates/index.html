@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Docs-API*</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/htmx.org@1.9.6"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<script>
+    tailwind.config = {
+        darkMode: 'class',
+        theme: {
+            extend: {
+                colors: {
+                    'primary': '#FF6600',
+                    'primary-light': '#FF8533',
+                }
+            }
+        }
+    }
+</script>
+<style>
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    .fade-in {
+        animation: fadeIn 0.5s ease-in-out;
+    }
+    .transition-all {
+        transition-property: all;
+        transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+        transition-duration: 150ms;
+    }
+    .loader {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #FF6600;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    .modal {
+        transition: opacity 0.3s ease-in-out;
+    }
+    .modal-content {
+        transition: transform 0.3s ease-in-out;
+    }
+    .modal.active {
+        opacity: 1;
+        pointer-events: auto;
+    }
+    .modal.active .modal-content {
+        transform: translateY(0);
+    }
+</style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 flex flex-col min-h-screen transition-all" x-data="{ profileOpen: false, darkMode: false, userModalOpen: false }" :class="{ 'dark': darkMode }">
+<!-- Header -->
+<header class="bg-white dark:bg-gray-800 shadow-md fixed top-0 left-0 right-0 z-10 transition-all">
+    <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+        <div class="flex items-center">
+            <span class="text-2xl font-bold text-primary dark:text-primary-light">Docs-API*</span>
+        </div>
+        <div class="relative" x-data="{ profileOpen: false }">
+            <button @click="profileOpen = !profileOpen" class="flex items-center space-x-2 focus:outline-none">
+                <img src="{{ user.avatar }}" alt="Avatar" class="h-8 w-8 rounded-full">
+                <span class="text-gray-700 dark:text-gray-300 hidden md:inline">{{ user.name }}</span>
+                <i data-lucide="chevron-down" class="h-4 w-4 text-gray-500 dark:text-gray-400"></i>
+            </button>
+            <div x-show="profileOpen" @click.away="profileOpen = false" class="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg py-1 z-10 fade-in">
+                <a href="#" @click.prevent="userModalOpen = true; profileOpen = false" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Profile</a>
+                <button @click="darkMode = !darkMode" class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center">
+                    <span x-text="darkMode ? 'Light Mode' : 'Dark Mode'" class="flex-grow"></span>
+                    <i data-lucide="moon" x-show="!darkMode" class="h-4 w-4 ml-2"></i>
+                    <i data-lucide="sun" x-show="darkMode" class="h-4 w-4 ml-2"></i>
+                </button>
+                <a href="{{ url_for('logout') }}" class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700">Logout</a>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Main content -->
+<main class="flex-grow container mx-auto px-4 py-8 mt-16">
+    <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6 mb-8 max-w-2xl mx-auto transition-all">
+        <h1 class="text-2xl font-bold mb-6 text-center text-primary dark:text-primary-light">Document Processing Wizard</h1>
+        <div id="wizard" class="space-y-8">
+            <!-- Progress bar -->
+            <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5">
+                <div id="progress-bar" class="bg-primary dark:bg-primary-light h-2.5 rounded-full transition-all duration-500 ease-in-out" style="width: 0%"></div>
+            </div>
+
+            <!-- Step indicators -->
+            <div class="flex justify-between">
+                <div class="flex flex-col items-center">
+                    <i data-lucide="upload-cloud" class="h-6 w-6 mb-2 text-primary dark:text-primary-light"></i>
+                    <span class="text-sm text-gray-600 dark:text-gray-400">Upload</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <i data-lucide="file-text" class="h-6 w-6 mb-2 text-primary dark:text-primary-light"></i>
+                    <span class="text-sm text-gray-600 dark:text-gray-400">Classify</span>
+                </div>
+                <div class="flex flex-col items-center">
+                    <i data-lucide="clipboard-list" class="h-6 w-6 mb-2 text-primary dark:text-primary-light"></i>
+                    <span class="text-sm text-gray-600 dark:text-gray-400">Extract</span>
+                </div>
+            </div>
+
+            <!-- Step content -->
+            <div id="step-content" class="space-y-4">
+                <!-- Upload step -->
+                <div id="upload-step">
+                    <form id="upload-form" class="space-y-4" enctype="multipart/form-data">
+                        <label for="file" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Upload Document</label>
+                        <input type="file" id="file" name="file" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300" required>
+                        <button type="submit" class="w-full bg-primary dark:bg-primary-light text-white p-2 rounded-md hover:bg-primary-light dark:hover:bg-primary transition-all duration-300">Upload and Continue</button>
+                    </form>
+                </div>
+
+                <!-- Classification step -->
+                <div id="classification-step" class="hidden fade-in">
+                    <form id="classification-form" class="space-y-4">
+                        <div>
+                            <label for="doc_uuid" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Document UUID</label>
+                            <input type="text" id="doc_uuid" name="doc_uuid" readonly class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-300">
+                        </div>
+                        <div>
+                            <label for="openai_model" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">OpenAI Model</label>
+                            <select id="openai_model" name="openai_model" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300" required>
+                                <option value="">Select OpenAI model</option>
+                                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                                <option value="gpt-4">GPT-4</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="w-full bg-primary dark:bg-primary-light text-white p-2 rounded-md hover:bg-primary-light dark:hover:bg-primary transition-all duration-300">Start Classification</button>
+                    </form>
+                    <div id="classification-results" class="mt-4 hidden">
+                        <h3 class="text-lg font-semibold mb-2">Classification Results</h3>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                <thead class="bg-gray-50 dark:bg-gray-900">
+                                    <tr>
+                                        <!-- Table headers will be dynamically added here -->
+                                    </tr>
+                                </thead>
+                                <tbody id="classification-results-body">
+                                    <!-- Classification results will be dynamically added here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Extraction step -->
+                <div id="extraction-step" class="hidden fade-in">
+                    <form id="extraction-form" class="space-y-4">
+                        <div>
+                            <label for="extraction_doc_uuid" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Document UUID</label>
+                            <input type="text" id="extraction_doc_uuid" name="doc_uuid" readonly class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-300">
+                        </div>
+                        <div>
+                            <label for="extraction_openai_model" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">OpenAI Model</label>
+                            <select id="extraction_openai_model" name="openai_model" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300" required>
+                                <option value="">Select OpenAI model</option>
+                                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                                <option value="gpt-4">GPT-4</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="category" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Category</label>
+                            <select id="category" name="category" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300" required>
+                                <option value="">Select category</option>
+                                <!-- Add category options here -->
+                            </select>
+                        </div>
+                        <div>
+                            <label for="subcategory" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Subcategory</label>
+                            <select id="subcategory" name="subcategory" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300" required>
+                                <option value="">Select subcategory</option>
+                                <!-- Add subcategory options here -->
+                            </select>
+                        </div>
+                        <button type="submit" class="w-full bg-primary dark:bg-primary-light text-white p-2 rounded-md hover:bg-primary-light dark:hover:bg-primary transition-all duration-300">Start Extraction</button>
+                    </form>
+                    <div id="extraction-results" class="mt-4 hidden">
+                        <h3 class="text-lg font-semibold mb-2">Extraction Results</h3>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                <thead class="bg-gray-50 dark:bg-gray-900">
+                                    <tr>
+                                        <!-- Table headers will be dynamically added here -->
+                                    </tr>
+                                </thead>
+                                <tbody id="extraction-results-body">
+                                    <!-- Extraction results will be dynamically added here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Requests Table -->
+    <div class="bg-white dark:bg-gray-800 shadow-md rounded-lg p-6 overflow-x-auto transition-all">
+        <h2 class="text-xl font-bold mb-4 text-primary dark:text-primary-light">Your Requests</h2>
+        <div class="mb-4">
+            <input type="text" id="search-input" placeholder="Search by Document ID or Filename" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+        </div>
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead class="bg-gray-50 dark:bg-gray-900">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Filename</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Document UUID</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider cursor-pointer" @click="sortByDate()">
+                        Upload Date
+                        <i data-lucide="chevron-up" class="inline-block ml-1" :class="{ 'rotate-180': sortDirection === 'desc' }"></i>
+                    </th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Category</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Email Action</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                <!-- Table rows will be dynamically added here -->
+            </tbody>
+        </table>
+    </div>
+</main>
+
+<!-- Footer -->
+<footer class="bg-white dark:bg-gray-800 shadow-md mt-8 transition-all">
+    <div class="container mx-auto px-4 py-4 text-center text-gray-600 dark:text-gray-400">
+        &copy; 2023 Docs-API*. All rights reserved.
+    </div>
+</footer>
+
+<!-- User Profile Modal -->
+<div x-show="userModalOpen" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center modal" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+    <div class="bg-white dark:bg-gray-800 rounded-lg p-8 max-w-md w-full modal-content" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 transform scale-95" x-transition:enter-end="opacity-100 transform scale-100" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100 transform scale-100" x-transition:leave-end="opacity-0 transform scale-95">
+        <h2 class="text-2xl font-bold mb-4 text-primary dark:text-primary-light">User Profile</h2>
+        <p><strong>User ID:</strong> {{ user.id }}</p>
+        <p><strong>Username:</strong> {{ user.name }}</p>
+        <p><strong>Email:</strong> {{ user.email }}</p>
+        <button @click="userModalOpen = false" class="mt-4 bg-primary dark:bg-primary-light text-white px-4 py-2 rounded-md hover:bg-primary-light dark:hover:bg-primary transition-all duration-300">Close</button>
+    </div>
+</div>
+
+<!-- Email Modal -->
+<div x-show="emailModalOpen" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center modal" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0" x-transition:enter-end="opacity-100" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100" x-transition:leave-end="opacity-0">
+    <div class="bg-white dark:bg-gray-800 rounded-lg p-8 max-w-md w-full modal-content" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 transform scale-95" x-transition:enter-end="opacity-100 transform scale-100" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100 transform scale-100" x-transition:leave-end="opacity-0 transform scale-95">
+        <h2 class="text-2xl font-bold mb-4 text-primary dark:text-primary-light">Send Email</h2>
+        <form id="email-form" class="space-y-4">
+            <div>
+                <label for="email_doc_uuid" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Document UUID</label>
+                <input type="text" id="email_doc_uuid" name="doc_uuid" readonly class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-100 dark:bg-gray-600 text-gray-700 dark:text-gray-300">
+            </div>
+            <div>
+                <label for="email_addresses" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email Addresses</label>
+                <input type="text" id="email_addresses" name="email_addresses" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300" placeholder="Multiple emails separated by ;" required>
+            </div>
+            <div>
+                <label for="process_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Process Name</label>
+                <select id="process_name" name="process_name" class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300" required>
+                    <option value="classification">Classification</option>
+                    <option value="extraction">Extraction</option>
+                </select>
+            </div>
+            <button type="submit" class="w-full bg-primary dark:bg-primary-light text-white p-2 rounded-md hover:bg-primary-light dark:hover:bg-primary transition-all duration-300">Send Email</button>
+        </form>
+        <button @click="emailModalOpen = false" class="mt-4 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-md hover:bg-gray-400 dark:hover:bg-gray-500 transition-all duration-300">Cancel</button>
+    </div>
+</div>
+
+<script>
+    let currentStep = 0;
+    let docUuid = null;
+    const steps = ['upload-step', 'classification-step', 'extraction-step'];
+
+    function updateProgress() {
+        const progress = (currentStep / (steps.length - 1)) * 100;
+        document.getElementById('progress-bar').style.width = `${progress}%`;
+    }
+
+    function showStep(step) {
+        steps.forEach((s, index) => {
+            const el = document.getElementById(s);
+            if (index === step) {
+                el.classList.remove('hidden');
+                void el.offsetWidth; // Trigger reflow
+                el.classList.add('fade-in');
+            } else {
+                el.classList.add('hidden');
+                el.classList.remove('fade-in');
+            }
+        });
+        updateProgress();
+    }
+
+    document.getElementById('upload-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        try {
+            showLoader();
+            const response = await fetch('/upload', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+            if (response.ok) {
+                docUuid = data.doc_uuid;
+                document.getElementById('doc_uuid').value = docUuid;
+                document.getElementById('extraction_doc_uuid').value = docUuid;
+                
+                // Add or update the request in the table
+                updateRequestsTable('Uploaded');
+                
+                currentStep++;
+                showStep(currentStep);
+            } else {
+                alert(data.error);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('An error occurred while uploading the file');
+        } finally {
+            hideLoader();
+        }
+    });
+
+    document.getElementById('classification-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        try {
+            showLoader();
+            // Mock data for classification results
+            const mockClassificationResults = [
+                { field: 'Category', value: 'Invoice' },
+                { field: 'Confidence', value: '0.95' },
+                { field: 'Secondary Category', value: 'Receipt' },
+                { field: 'Secondary Confidence', value: '0.03' }
+            ];
+            
+            // Simulate a delay to mimic server processing time
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            if (mockClassificationResults && mockClassificationResults.length > 0) {
+                displayResults(mockClassificationResults, 'classification-results');
+                document.getElementById('classification-results').classList.remove('hidden');
+                
+                // Add "Proceed to Extraction" button
+                const proceedButton = document.createElement('button');
+                proceedButton.textContent = 'Proceed to Extraction';
+                proceedButton.className = 'mt-4 bg-primary dark:bg-primary-light text-white p-2 rounded-md hover:bg-primary-light dark:hover:bg-primary transition-all duration-300';
+                proceedButton.onclick = () => {
+                    currentStep++;
+                    showStep(currentStep);
+                };
+                document.getElementById('classification-results').appendChild(proceedButton);
+                
+                // Update or add the request in the table
+                updateRequestsTable('Classified', mockClassificationResults[0].value);
+                
+                // Populate the category and subcategory dropdowns
+                const categorySelect = document.getElementById('category');
+                const subcategorySelect = document.getElementById('subcategory');
+                categorySelect.innerHTML = `<option value="${mockClassificationResults[0].value}">${mockClassificationResults[0].value}</option>`;
+                subcategorySelect.innerHTML = `<option value="${mockClassificationResults[2].value}">${mockClassificationResults[2].value}</option>`;
+            } else {
+                throw new Error('No classification results returned from the server.');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert(`An error occurred during classification: ${error.message}`);
+        } finally {
+            hideLoader();
+        }
+    });
+
+    function displayResults(results, containerId) {
+        const container = document.getElementById(containerId);
+        const tbody = container.querySelector('tbody');
+        tbody.innerHTML = '';
+        const headers = ['Field', 'Value'];
+        
+        // Add table headers
+        const thead = container.querySelector('thead tr');
+        thead.innerHTML = headers.map(header => `<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">${header}</th>`).join('');
+
+        // Add table rows
+        results.forEach(result => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">${result.field}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">${result.value}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function updateRequestsTable(status, category = '') {
+        const index = requests.findIndex(req => req.doc_uuid === docUuid);
+        if (index !== -1) {
+            requests[index].status = status;
+            if (category) {
+                requests[index].category = category;
+            }
+        } else {
+            // If the request doesn't exist, add a new one
+            const newRequest = {
+                filename: document.getElementById('file').files[0].name,
+                doc_uuid: docUuid,
+                upload_date: new Date().toISOString().split('T')[0],
+                status: status,
+                category: category
+            };
+            requests.unshift(newRequest);
+        }
+        renderTable();
+    }
+
+    document.getElementById('extraction-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        try {
+            showLoader();
+            // Mock data for extraction results
+            const mockExtractionResults = [
+                { field: 'Invoice Number', value: 'INV-2023-001' },
+                { field: 'Date', value: '2023-05-15' },
+                { field: 'Total Amount', value: '$1,234.56' },
+                { field: 'Customer Name', value: 'ACME Corporation' }
+            ];
+            
+            // Simulate a delay to mimic server processing time
+            await new Promise(resolve => setTimeout(resolve, 1500));
+
+            displayResults(mockExtractionResults, 'extraction-results');
+            document.getElementById('extraction-results').classList.remove('hidden');
+            
+            // Add "Finish" button
+            const finishButton = document.createElement('button');
+            finishButton.textContent = 'Finish';
+            finishButton.className = 'mt-4 bg-primary dark:bg-primary-light text-white p-2 rounded-md hover:bg-primary-light dark:hover:bg-primary transition-all duration-300';
+            finishButton.onclick = resetWizard;
+            document.getElementById('extraction-results').appendChild(finishButton);
+            
+            // Update the request in the table
+            updateRequestsTable('Completed');
+        } catch (error) {
+            console.error('Error:', error);
+            alert('An error occurred during extraction');
+        } finally {
+            hideLoader();
+        }
+    });
+
+    document.getElementById('email-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        try {
+            showLoader();
+            const response = await fetch('/email', {
+                method: 'POST',
+                body: new URLSearchParams(formData)
+            });
+            const data = await response.json();
+            if (response.ok) {
+                alert('Email sent successfully!');
+                emailModalOpen = false;
+            } else {
+                alert(data.error);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('An error occurred while sending the email');
+        } finally {
+            hideLoader();
+        }
+    });
+
+    function resetWizard() {
+        currentStep = 0;
+        docUuid = null;
+        showStep(currentStep);
+        document.getElementById('upload-form').reset();
+        document.getElementById('classification-form').reset();
+        document.getElementById('extraction-form').reset();
+        // Reload the page to update the requests table
+        window.location.reload();
+    }
+
+    function showLoader() {
+        const loader = document.createElement('div');
+        loader.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center';
+        loader.innerHTML = '<div class="loader"></div>';
+        document.body.appendChild(loader);
+    }
+
+    function hideLoader() {
+        const loader = document.querySelector('.loader').parentNode;
+        if (loader) {
+            loader.remove();
+        }
+    }
+
+    function openEmailModal(docUuid) {
+        document.getElementById('email_doc_uuid').value = docUuid;
+        emailModalOpen = true;
+    }
+
+    // Add these variables at the beginning of your script
+    let requests = [];
+    let sortDirection = 'desc';
+
+    // Function to render the table
+    function renderTable() {
+        const tbody = document.querySelector('tbody');
+        tbody.innerHTML = '';
+        
+        requests.forEach(request => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">${request.filename}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">${request.doc_uuid}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">${request.upload_date}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">${request.category || 'N/A'}</td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                        ${request.status === 'Completed' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
+                        request.status === 'Uploaded' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' :
+                        'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'}">
+                        ${request.status}
+                    </span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                    <button onclick="openEmailModal('${request.doc_uuid}')" class="bg-primary dark:bg-primary-light text-white px-3 py-1 rounded-md hover:bg-primary-light dark:hover:bg-primary transition-all duration-300">Email</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    // Function to sort the table by date
+    function sortByDate() {
+        sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+        requests.sort((a, b) => {
+            const dateA = new Date(a.upload_date);
+            const dateB = new Date(b.upload_date);
+            return sortDirection === 'asc' ? dateA - dateB : dateB - dateA;
+        });
+        renderTable();
+    }
+
+    // Function to filter the table
+    function filterTable() {
+        const searchTerm = document.getElementById('search-input').value.toLowerCase();
+        const filteredRequests = requests.filter(request => 
+            request.filename.toLowerCase().includes(searchTerm) || 
+            request.doc_uuid.toLowerCase().includes(searchTerm)
+        );
+        renderFilteredTable(filteredRequests);
+    }
+
+    // Function to render filtered table
+    function renderFilteredTable(filteredRequests) {
+        const tbody = document.querySelector('tbody');
+        tbody.innerHTML = '';
+        
+        filteredRequests.forEach(request => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">${request.filename}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">${request.doc_uuid}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">${request.upload_date}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 dark:text-gray-300">${request.category || 'N/A'}</td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
+                        ${request.status === 'Completed' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
+                        request.status === 'Uploaded' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' :
+                        'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'}">
+                        ${request.status}
+                    </span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                    <button onclick="openEmailModal('${request.doc_uuid}')" class="bg-primary dark:bg-primary-light text-white px-3 py-1 rounded-md hover:bg-primary-light dark:hover:bg-primary transition-all duration-300">Email</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    // Event listener for search input
+    document.getElementById('search-input').addEventListener('input', filterTable);
+
+    // Function to open email modal
+    function openEmailModal(docUuid) {
+        document.getElementById('email_doc_uuid').value = docUuid;
+        emailModalOpen = true;
+    }
+
+    // Fetch requests data and render the table
+    async function fetchAndRenderRequests() {
+        try {
+            const response = await fetch('/get_requests');
+            requests = await response.json();
+            renderTable();
+        } catch (error) {
+            console.error('Error fetching requests:', error);
+        }
+    }
+
+    // Call this function when the page loads
+    fetchAndRenderRequests();
+
+    // Initialize the wizard
+    showStep(currentStep);
+    lucide.createIcons();
+</script>
+</body>
+</html>
